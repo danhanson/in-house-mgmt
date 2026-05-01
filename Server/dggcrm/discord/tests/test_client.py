@@ -1,6 +1,8 @@
+import pytest
+import requests
 import responses
 
-from dggcrm.discord.client import DISCORD_API_BASE, DiscordClient
+from dggcrm.discord.client import DISCORD_API_BASE, DiscordClient, DiscordFetchError
 
 
 class TestDiscordClient:
@@ -69,8 +71,8 @@ class TestDiscordClient:
         assert result == set()
 
     @responses.activate
-    def test_fetch_members_api_error(self):
-        """Handles API errors gracefully (returns partial results)."""
+    def test_fetch_members_api_error_raises(self):
+        """Raises DiscordFetchError on API errors so callers don't see partial data."""
         client = DiscordClient(token="test-token", guild_id=123456789)
 
         responses.add(
@@ -80,9 +82,45 @@ class TestDiscordClient:
             status=403,
         )
 
-        result = client.fetch_all_member_ids()
+        with pytest.raises(DiscordFetchError, match="403"):
+            client.fetch_all_member_ids()
 
-        assert result == set()
+    @responses.activate
+    def test_fetch_members_network_error_raises(self):
+        """Raises DiscordFetchError when the underlying request raises (retries exhausted)."""
+        client = DiscordClient(token="test-token", guild_id=123456789)
+
+        responses.add(
+            responses.GET,
+            f"{DISCORD_API_BASE}/guilds/123456789/members?limit=1000",
+            body=requests.exceptions.ConnectionError("boom"),
+        )
+
+        with pytest.raises(DiscordFetchError, match="Network error"):
+            client.fetch_all_member_ids()
+
+    @responses.activate
+    def test_fetch_members_partial_pagination_raises(self):
+        """Failure mid-pagination raises rather than returning a truncated list."""
+        client = DiscordClient(token="test-token", guild_id=123456789)
+
+        # First page succeeds (1000 results triggers pagination)
+        responses.add(
+            responses.GET,
+            f"{DISCORD_API_BASE}/guilds/123456789/members?limit=1000",
+            json=[{"user": {"id": str(i)}} for i in range(1000)],
+            status=200,
+        )
+        # Second page fails
+        responses.add(
+            responses.GET,
+            f"{DISCORD_API_BASE}/guilds/123456789/members?limit=1000&after=999",
+            body="Missing Access",
+            status=403,
+        )
+
+        with pytest.raises(DiscordFetchError, match="403"):
+            client.fetch_all_member_ids()
 
     @responses.activate
     def test_authorization_header(self):
@@ -156,7 +194,7 @@ class TestDiscordClient:
 
     @responses.activate
     def test_no_retry_on_404(self):
-        """Does NOT retry on 404 - returns empty immediately."""
+        """Does NOT retry on 404 - raises immediately."""
         client = DiscordClient(token="test-token", guild_id=123456789)
 
         responses.add(
@@ -166,14 +204,13 @@ class TestDiscordClient:
             status=404,
         )
 
-        result = client.fetch_all_member_ids()
-
-        assert result == set()
+        with pytest.raises(DiscordFetchError, match="404"):
+            client.fetch_all_member_ids()
         assert len(responses.calls) == 1  # No retry
 
     @responses.activate
     def test_no_retry_on_401(self):
-        """Does NOT retry on 401 Unauthorized - returns empty immediately."""
+        """Does NOT retry on 401 Unauthorized - raises immediately."""
         client = DiscordClient(token="bad-token", guild_id=123456789)
 
         responses.add(
@@ -183,9 +220,8 @@ class TestDiscordClient:
             status=401,
         )
 
-        result = client.fetch_all_member_ids()
-
-        assert result == set()
+        with pytest.raises(DiscordFetchError, match="401"):
+            client.fetch_all_member_ids()
         assert len(responses.calls) == 1  # No retry
 
 

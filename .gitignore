@@ -9,6 +9,7 @@ AGENTS.md
 __pycache__/
 .venv
 venv/
+pyrightconfig.json
 
 # Dependency directories
 node_modules/
