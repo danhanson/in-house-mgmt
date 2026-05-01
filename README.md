@@ -173,6 +173,20 @@ DISCORD_MEMBERSHIP_TAG=DGG Discord
 
 The bot token authenticates API requests to Discord. The guild ID specifies which server to fetch members from. The membership tag is the name of the tag that will be applied to contacts who are Discord members.
 
+### 7. Scheduled Sync (Production)
+
+The `sync_discord_members` management command refreshes the Discord membership tag on contacts. In production it runs from a host crontab on the Coolify worker, not from a Coolify scheduled task — Coolify's scheduled tasks don't resolve containers correctly when `container_name:` is set in compose.
+
+SSH into the worker host and run `sudo crontab -e`. The wrapper rebuilds `DATABASE_URL` from the `POSTGRES_*` env vars because the entrypoint's `export DATABASE_URL=...` only lives in the `/start` process tree and is not visible to `docker exec`.
+
+```cron
+# Discord membership sync — staging at 2 AM PDT, prod at 3 AM PDT
+0 9 * * * /usr/bin/docker exec inhouse_suite_server_staging bash -c 'export DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}" && python manage.py sync_discord_members' >> /var/log/discord_sync.log 2>&1
+0 10 * * * /usr/bin/docker exec inhouse_suite_server bash -c 'export DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}" && python manage.py sync_discord_members' >> /var/log/discord_sync.log 2>&1
+```
+
+Tail `/var/log/discord_sync.log` to verify runs.
+
 ---
 
 # Contributing
