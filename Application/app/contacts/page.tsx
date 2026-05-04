@@ -98,7 +98,7 @@ export default function ContactsPage() {
           if (minEvents) params.append("min_events", minEvents.toString());
           if (minTickets) params.append("min_tickets", minTickets.toString());
           if (maxTickets) params.append("max_tickets", maxTickets.toString());
-          if (maxEvents) params.append("max_tickets", maxEvents.toString());
+          if (maxEvents) params.append("max_events", maxEvents.toString());
           if (startDate) params.append("start_date", startDate);
           if (endDate) params.append("end_date", endDate);
 
