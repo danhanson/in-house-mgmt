@@ -2,16 +2,17 @@ import logging
 import os
 
 from django.db import transaction
+from django.db.models import Count, Q
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework import status
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from dggcrm.accounts.models import DiscordID
 from dggcrm.contacts.models import Contact, Tag, TagAssignments
 from dggcrm.events.models import Event, EventParticipation, StagedEvent, StagedEventParticipation
 from dggcrm.events.permissions import can_change_event
@@ -153,7 +154,7 @@ class SyncMembershipTagsView(APIView):
 
 class RecordAttendanceView(APIView):
     """
-    POST /api/discord/record-attendance/
+    POST /api/discord/staged-event-participations/
 
     Stages attendance from the Discord bot. Creates or updates a
     StagedEvent row keyed by discord_event_id; replaces the calling
@@ -191,12 +192,8 @@ class RecordAttendanceView(APIView):
         )
         unlinked_participants = [p for p in participants if p["discord_id"] not in known_discord_ids]
 
-        # CanRecordAttendance has already validated that this Discord ID
-        # is linked to a CRM user with the right permission, so the lookup
-        # below is guaranteed to succeed.
-        tracker = (
-            DiscordID.objects.select_related("user").get(discord_id=data["event_tracker_discord_id"], active=True).user
-        )
+        # Resolved by CanRecordAttendance — see permissions.py.
+        tracker = request.tracker_user
         with transaction.atomic():
             staged_event, _ = StagedEvent.objects.update_or_create(
                 discord_event_id=data["event_id"],
@@ -209,7 +206,6 @@ class RecordAttendanceView(APIView):
             imported_discord_ids = set(
                 tracker_rows.filter(imported_at__isnull=False).values_list("discord_id", flat=True)
             )
-            tracker_rows.filter(imported_at__isnull=True).delete()
             StagedEventParticipation.objects.bulk_create(
                 [
                     StagedEventParticipation(
@@ -261,8 +257,8 @@ class CheckAttendancePermissionView(APIView):
     ephemeral feedback instead of finding out at submission time.
 
     Returns 200 with {"authorized": bool, "reason": "<code>"}. The
-    actual record-attendance endpoint still re-enforces the same
-    check, so this is purely for UX — the source of truth is there.
+    actual staged-event-participations endpoint still re-enforces the
+    same check, so this is purely for UX — the source of truth is there.
     """
 
     permission_classes = [IsBotCaller]
@@ -270,7 +266,7 @@ class CheckAttendancePermissionView(APIView):
 
     def get(self, request):
         discord_id = request.query_params.get("discord_id", "")
-        authorized, reason = check_record_attendance_permission(discord_id)
+        authorized, reason, _ = check_record_attendance_permission(discord_id)
         return Response(
             {"authorized": authorized, "reason": reason},
             status=status.HTTP_200_OK,
@@ -280,38 +276,29 @@ class CheckAttendancePermissionView(APIView):
 def _resolve_staged_import_context(user, staged_id, target_event_id):
     """Look up the (target Event, StagedEvent) pair for a bulk-import request,
     enforcing both the destination-event change permission and the requester's
-    membership as a tracker on the staged event. Returns a Response with the
-    appropriate 4xx on any failure so the caller can short-circuit."""
+    membership as a tracker on the staged event. Raises a DRF exception on any
+    failure (DRF's exception handler converts it to the appropriate 4xx)."""
     if not target_event_id:
-        return Response(
-            {"error": "target_event_id is required"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
+        raise ValidationError({"error": "target_event_id is required"})
     try:
         target_event = Event.objects.get(id=target_event_id)
     except (Event.DoesNotExist, ValueError):
-        return Response({"error": "target event not found"}, status=status.HTTP_404_NOT_FOUND)
+        raise NotFound({"error": "target event not found"}) from None
     if not can_change_event(user, target_event):
-        return Response(
-            {"error": "you don't have permission to modify the target event"},
-            status=status.HTTP_403_FORBIDDEN,
-        )
+        raise PermissionDenied({"error": "you don't have permission to modify the target event"})
     try:
         staged_event = StagedEvent.objects.get(id=staged_id)
     except StagedEvent.DoesNotExist:
-        return Response({"error": "staged event not found"}, status=status.HTTP_404_NOT_FOUND)
+        raise NotFound({"error": "staged event not found"}) from None
     if not staged_event.participants.filter(event_tracker_crm_user=user).exists():
-        return Response(
-            {"error": "you are not a tracker on this staged event"},
-            status=status.HTTP_403_FORBIDDEN,
-        )
+        raise PermissionDenied({"error": "you are not a tracker on this staged event"})
     return target_event, staged_event
 
 
 @method_decorator(ensure_csrf_cookie, name="get")
-class MyStagedEventsView(APIView):
+class StagedEventsView(APIView):
     """
-    GET /api/discord/staged-events/mine/
+    GET /api/discord/staged-events/
 
     Lists staged events the requesting user has tracked and that still
     have un-imported participations. Powers the bulk-upload modal's
@@ -326,29 +313,26 @@ class MyStagedEventsView(APIView):
     authentication_classes = [TokenAuthentication, SessionAuthentication]
 
     def get(self, request):
-        my_unimported = StagedEventParticipation.objects.filter(
-            event_tracker_crm_user=request.user,
-            imported_at__isnull=True,
+        pending = Q(
+            participants__event_tracker_crm_user=request.user,
+            participants__imported_at__isnull=True,
         )
-        staged_events = list(
-            StagedEvent.objects.filter(participants__in=my_unimported).distinct().order_by("-modified_at")
-        )
-        if not staged_events:
-            return Response([])
+        linked_discord_ids = Contact.objects.exclude(discord_id="").values("discord_id")
 
-        rows = list(my_unimported.values_list("staged_event_id", "discord_id"))
-        all_discord_ids = {dc for _, dc in rows}
-        contact_discord_ids = set(
-            Contact.objects.filter(discord_id__in=all_discord_ids)
-            .exclude(discord_id="")
-            .values_list("discord_id", flat=True)
+        staged_events = (
+            StagedEvent.objects.filter(pending)
+            .annotate(
+                importable_count=Count(
+                    "participants",
+                    filter=pending & Q(participants__discord_id__in=linked_discord_ids),
+                ),
+                no_contact_count=Count(
+                    "participants",
+                    filter=pending & ~Q(participants__discord_id__in=linked_discord_ids),
+                ),
+            )
+            .order_by("-modified_at")
         )
-
-        importable: dict[int, int] = {}
-        no_contact: dict[int, int] = {}
-        for sid, dc in rows:
-            bucket = importable if dc in contact_discord_ids else no_contact
-            bucket[sid] = bucket.get(sid, 0) + 1
 
         return Response(
             [
@@ -357,8 +341,8 @@ class MyStagedEventsView(APIView):
                     "discord_event_id": se.discord_event_id,
                     "event_name": se.event_name,
                     "modified_at": se.modified_at,
-                    "importable_count": importable.get(se.id, 0),
-                    "no_contact_count": no_contact.get(se.id, 0),
+                    "importable_count": se.importable_count,
+                    "no_contact_count": se.no_contact_count,
                 }
                 for se in staged_events
             ]
@@ -384,10 +368,9 @@ class StagedImportPreviewView(APIView):
     authentication_classes = [TokenAuthentication, SessionAuthentication]
 
     def get(self, request, staged_id):
-        ctx = _resolve_staged_import_context(request.user, staged_id, request.query_params.get("target_event_id"))
-        if isinstance(ctx, Response):
-            return ctx
-        target_event, staged_event = ctx
+        target_event, staged_event = _resolve_staged_import_context(
+            request.user, staged_id, request.query_params.get("target_event_id")
+        )
 
         my_rows = list(
             staged_event.participants.filter(
@@ -404,10 +387,16 @@ class StagedImportPreviewView(APIView):
             .exclude(discord_id="")
             .values_list("discord_id", flat=True)
         )
-        discord_ids_already_on_event = set(
-            EventParticipation.objects.filter(event=target_event, contact__discord_id__in=discord_ids).values_list(
-                "contact__discord_id", flat=True
-            )
+        # discord_id -> current status on the target event (for "already on event"
+        # participants). The import upserts status, so the UI uses this to show
+        # MAYBE→ATTENDED-style transitions in the preview table.
+        # Order by contact_id so that when multiple Contact rows share a discord_id,
+        # dict() collapses to a deterministic last-wins (the highest contact_id),
+        # matching what the executor's Contact lookup will pick.
+        current_status_by_discord_id = dict(
+            EventParticipation.objects.filter(event=target_event, contact__discord_id__in=discord_ids)
+            .order_by("contact_id")
+            .values_list("contact__discord_id", "status")
         )
 
         return Response(
@@ -420,8 +409,9 @@ class StagedImportPreviewView(APIView):
                         "discord_id": r.discord_id,
                         "discord_name": r.discord_name,
                         "status": r.status,
+                        "current_status": current_status_by_discord_id.get(r.discord_id),
                         "has_contact": r.discord_id in discord_ids_with_contact,
-                        "already_on_event": r.discord_id in discord_ids_already_on_event,
+                        "already_on_event": r.discord_id in current_status_by_discord_id,
                     }
                     for r in my_rows
                 ],
@@ -446,10 +436,9 @@ class StagedImportExecuteView(APIView):
     authentication_classes = [TokenAuthentication, SessionAuthentication]
 
     def post(self, request, staged_id):
-        ctx = _resolve_staged_import_context(request.user, staged_id, request.data.get("target_event_id"))
-        if isinstance(ctx, Response):
-            return ctx
-        target_event, staged_event = ctx
+        target_event, staged_event = _resolve_staged_import_context(
+            request.user, staged_id, request.data.get("target_event_id")
+        )
 
         my_rows = list(
             staged_event.participants.filter(

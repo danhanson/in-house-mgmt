@@ -12,26 +12,29 @@ REASON_UNLINKED_DISCORD_ID = "unlinked_discord_id"
 REASON_NOT_AUTHORIZED = "not_authorized"
 
 
-def check_record_attendance_permission(tracker_discord_id: str) -> tuple[bool, str]:
+def check_record_attendance_permission(
+    tracker_discord_id: str,
+) -> tuple[bool, str, DiscordID | None]:
     """
     Decide whether the Discord user identified by tracker_discord_id is allowed
     to record attendance.
 
-    Returns (authorized, reason_code) so callers can render specific feedback
-    instead of just rejecting with a generic 403.
+    Returns (authorized, reason_code, link) so callers can render specific feedback
+    instead of just rejecting with a generic 403. Link is the map between the
+    discord id and CRM id
     """
     if not tracker_discord_id:
-        return False, REASON_MISSING_TRACKER
+        return False, REASON_MISSING_TRACKER, None
 
     try:
         link = DiscordID.objects.select_related("user").get(discord_id=tracker_discord_id, active=True)
     except DiscordID.DoesNotExist:
-        return False, REASON_UNLINKED_DISCORD_ID
+        return False, REASON_UNLINKED_DISCORD_ID, None
 
     if not link.user.has_perm("events.record_attendance"):
-        return False, REASON_NOT_AUTHORIZED
+        return False, REASON_NOT_AUTHORIZED, None
 
-    return True, REASON_OK
+    return True, REASON_OK, link
 
 
 def is_bot_caller(user) -> bool:
@@ -69,5 +72,7 @@ class CanRecordAttendance(BasePermission):
     def has_permission(self, request, view):
         if not is_bot_caller(request.user):
             return False
-        authorized, _ = check_record_attendance_permission(request.data.get("event_tracker_discord_id"))
+        authorized, _, link = check_record_attendance_permission(request.data.get("event_tracker_discord_id"))
+        if authorized and link:
+            request.tracker_user = link.user
         return authorized

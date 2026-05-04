@@ -342,7 +342,7 @@ class TestSyncMembershipRolesTags:
 
 @pytest.mark.django_db
 class TestRecordAttendanceView:
-    ENDPOINT = "/api/discord/record-attendance/"
+    ENDPOINT = "/api/discord/staged-event-participations/"
 
     def _payload(self, **overrides):
         base = {
@@ -791,10 +791,10 @@ def import_setup(db, event_tracker_user, sample_contacts):
 
 
 @pytest.mark.django_db
-class TestMyStagedEventsView:
+class TestStagedEventsView:
     """List endpoint that powers the bulk-upload modal's dropdown."""
 
-    ENDPOINT = "/api/discord/staged-events/mine/"
+    ENDPOINT = "/api/discord/staged-events/"
 
     def test_requires_authentication(self, api_client):
         response = api_client.get(self.ENDPOINT)
@@ -862,9 +862,11 @@ class TestStagedImportPreviewView:
         from dggcrm.contacts.models import Contact
         from dggcrm.events.models import EventParticipation
 
-        # Pre-add Alice as an EventParticipation so she should show "already_on_event".
+        # Pre-add Alice as an EventParticipation with status=MAYBE so the preview
+        # should report current_status="MAYBE" alongside her staged status of
+        # ATTENDED — exercises the "status will be overwritten" diff path.
         alice = Contact.objects.get(discord_id="100000000000000001")
-        EventParticipation.objects.create(event=import_setup["target_event"], contact=alice)
+        EventParticipation.objects.create(event=import_setup["target_event"], contact=alice, status="MAYBE")
 
         response = import_setup["client"].get(
             self._url(import_setup["staged_event"].id),
@@ -874,15 +876,19 @@ class TestStagedImportPreviewView:
         body = response.json()
         rows_by_name = {r["discord_name"]: r for r in body["participants"]}
 
-        # Alice: has contact, already on event.
+        # Alice: has contact, already on event with MAYBE → staged ATTENDED triggers diff.
         assert rows_by_name["Alice"]["has_contact"] is True
         assert rows_by_name["Alice"]["already_on_event"] is True
-        # Bob: has contact, NOT on event yet → will be added.
+        assert rows_by_name["Alice"]["current_status"] == "MAYBE"
+        assert rows_by_name["Alice"]["status"] == "ATTENDED"
+        # Bob: has contact, NOT on event yet → will be added; no current_status.
         assert rows_by_name["Bob"]["has_contact"] is True
         assert rows_by_name["Bob"]["already_on_event"] is False
-        # Stranger: no CRM contact → grayed.
+        assert rows_by_name["Bob"]["current_status"] is None
+        # Stranger: no CRM contact → grayed; no current_status.
         assert rows_by_name["Stranger"]["has_contact"] is False
         assert rows_by_name["Stranger"]["already_on_event"] is False
+        assert rows_by_name["Stranger"]["current_status"] is None
 
     def test_excludes_already_imported_rows(self, import_setup):
         from django.utils import timezone
@@ -1025,13 +1031,7 @@ class TestStagedImportExecuteView:
         from django.utils import timezone as dj_timezone
 
         from dggcrm.contacts.models import Contact
-        from dggcrm.events.models import (
-            Event,
-            EventParticipation,
-            StagedEvent,
-            StagedEventParticipation,
-            UsersInEvent,
-        )
+        from dggcrm.events.models import Event, EventParticipation, StagedEvent, StagedEventParticipation, UsersInEvent
 
         # Tracker has the event-edit permission and is assigned to the event
         # they're about to "create" — same shape as the real flow.
