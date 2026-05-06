@@ -30,3 +30,7 @@ htmlcov/
 
 # Django
 Server/staticfiles
+.claude/
+Application/.nvmrc
+Server/.claude/
+tmp/

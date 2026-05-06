@@ -7,7 +7,6 @@ import {
   Group,
   Modal,
   MultiSelect,
-  NumberInput,
   Paper,
   Select,
   Stack,
@@ -16,13 +15,21 @@ import {
   Title,
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
-import { IconPlus, IconSearch, IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
+import {
+  IconCalendar,
+  IconChevronLeft,
+  IconChevronRight,
+  IconPlus,
+  IconSearch,
+} from "@tabler/icons-react";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { apiClient } from "@/app/lib/apiClient";
 import { useForm } from "@mantine/form";
 import { TicketBulkCreateModal } from "@/app/components/tickets/TicketBulkCreateModal";
+import DebouncedRangeSliderInput from "@/app/components/DebouncedRangeSliderInput";
 import ContactTable, { type Contact, type Tag } from "@/app/components/ContactTable";
+import { type EventCategory } from "@/app/components/event-utils";
 import "./page.css";
 
 const MAX_TAG_COUNT = 99999;
@@ -37,10 +44,10 @@ export default function ContactsPage() {
   const [tagMode, setTagMode] = useState<"any" | "all">("any");
   const [startDate, setStartDate] = useState<string | null>("");
   const [endDate, setEndDate] = useState<string | null>("");
-  const [minEvents, setMinEvents] = useState<number | string>();
-  const [maxEvents, setMaxEvents] = useState<number | string>();
-  const [minTickets, setMinTickets] = useState<number | string>();
-  const [maxTickets, setMaxTickets] = useState<number | string>();
+  const [eventRange, setEventRange] = useState<[number, number]>([0, 20]);
+  const [ticketRange, setTicketRange] = useState<[number, number]>([0, 20]);
+  const [debouncedEventRange, setDebouncedEventRange] = useState<[number, number]>([0, 20]);
+  const [debouncedTicketRange, setDebouncedTicketRange] = useState<[number, number]>([0, 20]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [nextUrl, setNextUrl] = useState<string | null>(null);
   const [previousUrl, setPreviousUrl] = useState<string | null>(null);
@@ -49,6 +56,8 @@ export default function ContactsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
+  const [categories, setCategories] = useState<EventCategory[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
 
   const form = useForm({
     initialValues: {
@@ -65,20 +74,23 @@ export default function ContactsPage() {
     },
   });
 
-  // Fetch groups and tags on component mount
   useEffect(() => {
     const fetchGroupsAndTags = async () => {
       try {
         const tagsData = await apiClient.get<Tag[] | { results: Tag[] }>(
           `/tags/?page_size=${MAX_TAG_COUNT}`
         );
-
-        // Handle both array and object responses
         const tagsArray = Array.isArray(tagsData) ? tagsData : tagsData.results || [];
         setTags(tagsArray);
       } catch (error) {
         console.error("Error fetching groups and tags:", error);
-        setTags([]); // Ensure tags is always an array
+        setTags([]);
+      }
+      try {
+        const { results } = await apiClient.get<{ results: EventCategory[] }>("/event-categories/");
+        setCategories(results || []);
+      } catch {
+        setCategories([]);
       }
     };
     fetchGroupsAndTags();
@@ -91,25 +103,26 @@ export default function ContactsPage() {
 
         let fetchUrl = url;
 
-        // If no URL provided, build the initial query
         if (!fetchUrl) {
           const params = new URLSearchParams();
           if (searchQuery) params.append("search", searchQuery);
-          if (minEvents) params.append("min_events", minEvents.toString());
-          if (minTickets) params.append("min_tickets", minTickets.toString());
-          if (maxTickets) params.append("max_tickets", maxTickets.toString());
-          if (maxEvents) params.append("max_events", maxEvents.toString());
+          if (debouncedEventRange[0] > 0)
+            params.append("min_events", debouncedEventRange[0].toString());
+          if (debouncedEventRange[1] < 20)
+            params.append("max_events", debouncedEventRange[1].toString());
+          if (debouncedTicketRange[0] > 0)
+            params.append("min_tickets", debouncedTicketRange[0].toString());
+          if (debouncedTicketRange[1] < 20)
+            params.append("max_tickets", debouncedTicketRange[1].toString());
           if (startDate) params.append("start_date", startDate);
           if (endDate) params.append("end_date", endDate);
-
+          if (selectedCategoryId) params.append("event_category_id", selectedCategoryId);
           if (selectedTagIds.length > 0) {
             params.append("tag_ids", selectedTagIds.join(","));
             params.append("tag_mode", tagMode);
           }
           fetchUrl = `/contacts/?${params}`;
         }
-
-        console.log("Fetch URL:", fetchUrl);
 
         const data = await apiClient.get<{
           results: Contact[];
@@ -118,7 +131,6 @@ export default function ContactsPage() {
           previous: string | null;
         }>(fetchUrl || `/contacts/`);
 
-        console.log("Fetched contacts data:", data);
         setContacts(data.results);
         setTotalCount(data.count);
         setNextUrl(data.next);
@@ -130,15 +142,14 @@ export default function ContactsPage() {
       }
     },
     [
+      debouncedEventRange,
+      debouncedTicketRange,
       endDate,
-      maxEvents,
-      maxTickets,
-      minEvents,
-      minTickets,
       searchQuery,
+      selectedCategoryId,
       selectedTagIds,
-      startDate,
       tagMode,
+      startDate,
     ]
   );
 
@@ -147,15 +158,16 @@ export default function ContactsPage() {
   }, [fetchContacts]);
 
   const handleReset = () => {
-    setEndDate("");
-    setMaxEvents("");
-    setMaxTickets("");
-    setMinEvents("");
-    setMinTickets("");
     setSearchQuery("");
     setSelectedTagIds([]);
-    setStartDate("");
     setTagMode("any");
+    setEventRange([0, 20]);
+    setTicketRange([0, 20]);
+    setDebouncedEventRange([0, 20]);
+    setDebouncedTicketRange([0, 20]);
+    setStartDate("");
+    setEndDate("");
+    setSelectedCategoryId(null);
   };
 
   const handleRowClick = (contact: Contact) => {
@@ -171,7 +183,6 @@ export default function ContactsPage() {
   const handleSubmitContact = async (values: typeof form.values) => {
     setSubmitting(true);
     try {
-      // Step 1: Create the contact
       const contactData = {
         discord_id: values.discord_id,
         full_name: values.full_name,
@@ -181,7 +192,6 @@ export default function ContactsPage() {
 
       const newContact = await apiClient.post<Contact>("/contacts/", contactData);
 
-      // Step 2: Assign tags to the contact
       if (selectedTags.length > 0) {
         const tagAssignmentPromises = selectedTags.map((tagName) =>
           apiClient.post("/tag-assignments/", {
@@ -209,9 +219,10 @@ export default function ContactsPage() {
       const next = new Set(prev);
       if (next.has(id)) {
         next.delete(id);
-        return next;
+      } else {
+        next.add(id);
       }
-      return next.add(id);
+      return next;
     });
   };
 
@@ -232,12 +243,28 @@ export default function ContactsPage() {
             <Group gap="md" align="flex-end" grow>
               <TextInput
                 label="Search"
-                placeholder="Search by name, Discord ID, email, or phone..."
+                placeholder="Search name, Discord ID..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 leftSection={<IconSearch size={16} />}
+                style={{ flex: 1, minWidth: 200 }}
               />
-
+              <DateInput
+                label="Start Date"
+                value={startDate}
+                onChange={setStartDate}
+                placeholder="Start Date..."
+                leftSection={<IconCalendar size={16} />}
+              />
+              <DateInput
+                label="End Date"
+                onChange={setEndDate}
+                value={endDate}
+                placeholder="End Date..."
+                leftSection={<IconCalendar size={16} />}
+              />
+            </Group>
+            <Group gap="md" align="flex-end">
               <Group gap={0} align="flex-end" style={{ flex: 1 }}>
                 <Select
                   label="Tags"
@@ -275,49 +302,37 @@ export default function ContactsPage() {
                   }}
                 />
               </Group>
-            </Group>
-            <Group>
-              <>
-                <ContactNumberInput
-                  label="Minimum Events Attended"
-                  value={minEvents}
-                  setValue={setMinEvents}
-                  placeholder="Min Events..."
-                />
-                <ContactNumberInput
-                  label="Maximum Events Attended"
-                  value={maxEvents}
-                  setValue={setMaxEvents}
-                  placeholder="Max Events..."
-                />
-                <ContactNumberInput
-                  label="Minimum Closed Tickets"
-                  value={minTickets}
-                  setValue={setMinTickets}
-                  placeholder="Min Tickets..."
-                />
-                <ContactNumberInput
-                  label="Maximum Closed Tickets"
-                  value={maxTickets}
-                  setValue={setMaxTickets}
-                  placeholder="Max Tickets..."
-                />
-                <DateInput
-                  label="Search Start Time"
-                  value={startDate}
-                  onChange={setStartDate}
-                  placeholder="Start Date..."
-                />
-                <DateInput
-                  label="Search End Time"
-                  onChange={setEndDate}
-                  value={endDate}
-                  placeholder="End Date..."
-                />
-              </>
-            </Group>
-            <Group gap="sm">
-              <Button variant="outline" onClick={handleReset}>
+
+              <Select
+                label="Event Category"
+                placeholder="All categories"
+                data={categories.map((c) => ({ value: String(c.id), label: c.name }))}
+                value={selectedCategoryId}
+                onChange={setSelectedCategoryId}
+                clearable
+              />
+
+              <DebouncedRangeSliderInput
+                label="# of Events Attended"
+                min={0}
+                max={20}
+                minRange={0}
+                value={eventRange}
+                onChange={setEventRange}
+                onDebouncedChange={setDebouncedEventRange}
+                labelFormatter={(v) => (v === 20 ? "20+" : v)}
+              />
+              <DebouncedRangeSliderInput
+                label="# of Closed Tickets"
+                min={0}
+                max={20}
+                minRange={0}
+                value={ticketRange}
+                onChange={setTicketRange}
+                onDebouncedChange={setDebouncedTicketRange}
+                labelFormatter={(v) => (v === 20 ? "20+" : v)}
+              />
+              <Button variant="outline" onClick={handleReset} ml="auto">
                 Reset
               </Button>
             </Group>
@@ -457,30 +472,5 @@ export default function ContactsPage() {
         }}
       />
     </Container>
-  );
-}
-
-function ContactNumberInput({
-  label,
-  value,
-  setValue,
-  placeholder,
-}: {
-  label: string;
-  value: string | number | undefined;
-  setValue: (a: string | number | undefined) => void;
-  placeholder: string | undefined;
-}) {
-  return (
-    <NumberInput
-      label={label}
-      placeholder={placeholder}
-      value={value}
-      onChange={(num) => {
-        setValue(typeof num === "number" ? num : 0);
-      }}
-      allowNegative={false}
-      style={{ flex: 1 }}
-    />
   );
 }

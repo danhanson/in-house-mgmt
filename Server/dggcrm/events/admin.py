@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Event, EventParticipation, StagedEvent, StagedEventParticipation, UsersInEvent
+from .models import Event, EventCategory, EventParticipation, StagedEvent, StagedEventParticipation, UsersInEvent
 
 
 class EventParticipationInline(admin.TabularInline):
@@ -15,6 +15,13 @@ class UsersInEventInline(admin.TabularInline):
     extra = 1
     autocomplete_fields = ["event"]
     readonly_fields = ["joined_at"]
+
+
+@admin.register(EventCategory)
+class EventCategoryAdmin(admin.ModelAdmin):
+    list_display = ["name", "created_at"]
+    search_fields = ["name"]
+    readonly_fields = ["created_at", "modified_at"]
 
 
 @admin.register(Event)
