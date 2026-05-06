@@ -15,6 +15,7 @@ services:
     environment:
       - BACKEND_URL=http://server:8080
       - NEXT_PUBLIC_USE_MOCK_OAUTH=true
+      - NEXT_PUBLIC_ENVIRONMENT=dev
     command: sh -c "npm ci && npm run dev"
     ports:
       - '3030:3030'

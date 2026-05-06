@@ -39,6 +39,8 @@ services:
     build:
       context: .
       dockerfile: ./compose/production/application/Dockerfile
+      args:
+        NEXT_PUBLIC_ENVIRONMENT: staging
     image: inhouse_suite_frontend
     container_name: inhouse_suite_frontend_staging
     restart: unless-stopped
@@ -46,6 +48,7 @@ services:
       - BACKEND_URL=${BACKEND_URL}
       - SENTRY_DSN=${SENTRY_DSN}
       - NEXT_PUBLIC_SENTRY_DSN=${NEXT_PUBLIC_SENTRY_DSN}
+      - NEXT_PUBLIC_ENVIRONMENT=staging
     env_file:
       - path: ./.envs/.production/.frontend
         required: false

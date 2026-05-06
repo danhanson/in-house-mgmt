@@ -3,8 +3,8 @@ import "@mantine/core/styles.css";
 import "@mantine/charts/styles.css";
 import "@mantine/dates/styles.css";
 import "@mantine/notifications/styles.css";
-import { Geist, Geist_Mono } from "next/font/google";
 import NavbarSimple from "./components/Navbar/Navbar";
+import EnvironmentBanner, { getEnvironment } from "./components/EnvironmentBanner";
 import { UserProvider } from "./components/provider/UserContext";
 import { TimezoneProvider } from "./components/provider/TimezoneContext";
 import { ColorSchemeScript, MantineProvider, mantineHtmlProps } from "@mantine/core";
@@ -13,18 +13,12 @@ import { theme } from "./lib/theme";
 // Import datetime utils to ensure dayjs plugins are configured
 import "@/app/utils/datetime";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+const titlePrefix = getEnvironment()?.titlePrefix;
 
 export const metadata: Metadata = {
-  title: "DGG CRM",
+  title: titlePrefix
+    ? { template: `${titlePrefix} %s`, default: `${titlePrefix} DGG CRM` }
+    : "DGG CRM",
   description: "Volunteer Console CRM",
 };
 
@@ -40,6 +34,7 @@ export default function RootLayout({
       </head>
 
       <body>
+        <EnvironmentBanner />
         <UserProvider>
           <MantineProvider theme={theme}>
             <Notifications position="top-center" />
