@@ -137,7 +137,7 @@ export default function ContactsPage() {
             fetchUrl = '/contacts/';
           }
         }
-        
+
         const data = await apiClient.get<{
           results: Contact[];
           count: number;
