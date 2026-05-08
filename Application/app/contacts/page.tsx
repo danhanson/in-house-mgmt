@@ -69,9 +69,9 @@ export default function ContactsPage() {
       tags: [],
     },
     validate: {
-      discord_id: (value) => (!value ? "Discord ID is required" : null),
-      full_name: (value) => (!value ? "Full name is required" : null),
-      email: (value) => (value && !/^\S+@\S+$/.test(value) ? "Invalid email" : null),
+      discord_id: (value: string) => (!value ? "Discord ID is required" : null),
+      full_name: (value: string) => (!value ? "Full name is required" : null),
+      email: (value: string) => (value && !/^\S+@\S+$/.test(value) ? "Invalid email" : null),
     },
   });
 
