@@ -122,6 +122,8 @@ export default function ContactsPage() {
             params.append("start_date", startDate);
           if (endDate !== null)
             params.append("end_date", endDate);
+          if (selectedCategoryId !== null)
+            params.append("event_category_id", selectedCategoryId);
           if (debouncedSelectedTagIds.length > 0) {
             params.append("tag_ids", debouncedSelectedTagIds.join(","));
             params.append("tag_mode", tagMode);
