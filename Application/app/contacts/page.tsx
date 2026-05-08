@@ -27,7 +27,7 @@ import { useRouter } from "next/navigation";
 import { apiClient } from "@/app/lib/apiClient";
 import { useForm } from "@mantine/form";
 import { TicketBulkCreateModal } from "@/app/components/tickets/TicketBulkCreateModal";
-import DebouncedRangeSliderInput from "@/app/components/DebouncedRangeSliderInput";
+import RangeSliderInput from "@/app/components/RangeSliderInput";
 import ContactTable, { type Contact, type Tag } from "@/app/components/ContactTable";
 import { type EventCategory } from "@/app/components/event-utils";
 import "./page.css";
@@ -312,7 +312,7 @@ export default function ContactsPage() {
                 clearable
               />
 
-              <DebouncedRangeSliderInput
+              <RangeSliderInput
                 label="# of Events Attended"
                 min={0}
                 max={20}
@@ -322,7 +322,7 @@ export default function ContactsPage() {
                 onDebouncedChange={setDebouncedEventRange}
                 labelFormatter={(v) => (v === 20 ? "20+" : v)}
               />
-              <DebouncedRangeSliderInput
+              <RangeSliderInput
                 label="# of Closed Tickets"
                 min={0}
                 max={20}
