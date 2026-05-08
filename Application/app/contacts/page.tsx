@@ -35,6 +35,7 @@ import "./page.css";
 
 const MAX_TAG_COUNT = 99999;
 const CONTACT_FILTER_DEBOUNCE_MS = 300;
+const RANGE_LIMITS: [number, number] = [0, 20];
 
 export default function ContactsPage() {
   const router = useRouter();
@@ -46,6 +47,8 @@ export default function ContactsPage() {
   const [tagMode, setTagMode] = useState<"any" | "all">("any");
   const [startDate, setStartDate] = useState<string | null>(null);
   const [endDate, setEndDate] = useState<string | null>(null);
+  const [eventRange, setEventRange] = useState<[number, number]>(RANGE_LIMITS);
+  const [ticketRange, setTicketRange] = useState<[number, number]>(RANGE_LIMITS);
   const [tags, setTags] = useState<Tag[]>([]);
   const [nextUrl, setNextUrl] = useState<string | null>(null);
   const [previousUrl, setPreviousUrl] = useState<string | null>(null);
@@ -172,6 +175,8 @@ export default function ContactsPage() {
     setSearchQuery("");
     setSelectedTagIds([]);
     setTagMode("any");
+    setEventRange(RANGE_LIMITS);
+    setTicketRange(RANGE_LIMITS);
     setStartDate(null);
     setEndDate(null);
     setSelectedCategoryId(null);
@@ -220,6 +225,14 @@ export default function ContactsPage() {
       setSubmitting(false);
     }
   };
+
+  function rangeLabelFormatter(n: number): string {
+    if (n === RANGE_LIMITS[1]) {
+      return `${RANGE_LIMITS[1]}+`;
+    } else {
+      return n.toString();
+    }
+  }
 
   const toggleRowSelection = (id: number) => {
     setSelectedRows((prev) => {
@@ -323,21 +336,21 @@ export default function ContactsPage() {
 
               <RangeSliderInput
                 label="# of Events Attended"
-                min={0}
-                max={20}
+                min={RANGE_LIMITS[0]}
+                max={RANGE_LIMITS[1]}
                 minRange={0}
                 value={eventRange}
                 onChange={setEventRange}
-                labelFormatter={(v) => (v === 20 ? "20+" : v)}
+                labelFormatter={rangeLabelFormatter}
               />
               <RangeSliderInput
                 label="# of Closed Tickets"
-                min={0}
-                max={20}
+                min={RANGE_LIMITS[0]}
+                max={RANGE_LIMITS[1]}
                 minRange={0}
                 value={ticketRange}
                 onChange={setTicketRange}
-                labelFormatter={(v) => (v === 20 ? "20+" : v)}
+                labelFormatter={rangeLabelFormatter}
               />
               <Button variant="outline" onClick={handleReset} ml="auto">
                 Reset
