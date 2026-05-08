@@ -44,12 +44,8 @@ export default function ContactsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [tagMode, setTagMode] = useState<"any" | "all">("any");
-  const [startDate, setStartDate] = useState<string | null>("");
-  const [endDate, setEndDate] = useState<string | null>("");
-  const [eventRange, setEventRange] = useState<[number, number]>([0, 20]);
-  const [ticketRange, setTicketRange] = useState<[number, number]>([0, 20]);
-  const [debouncedEventRange, setDebouncedEventRange] = useState<[number, number]>([0, 20]);
-  const [debouncedTicketRange, setDebouncedTicketRange] = useState<[number, number]>([0, 20]);
+  const [startDate, setStartDate] = useState<string | null>(null);
+  const [endDate, setEndDate] = useState<string | null>(null);
   const [tags, setTags] = useState<Tag[]>([]);
   const [nextUrl, setNextUrl] = useState<string | null>(null);
   const [previousUrl, setPreviousUrl] = useState<string | null>(null);
@@ -122,6 +118,10 @@ export default function ContactsPage() {
             params.append("min_tickets", debouncedTicketRange[0].toString());
           if (debouncedTicketRange[1] < 20)
             params.append("max_tickets", debouncedTicketRange[1].toString());
+          if (startDate !== null)
+            params.append("start_date", startDate);
+          if (endDate !== null)
+            params.append("end_date", endDate);
           if (debouncedSelectedTagIds.length > 0) {
             params.append("tag_ids", debouncedSelectedTagIds.join(","));
             params.append("tag_mode", tagMode);
@@ -166,12 +166,8 @@ export default function ContactsPage() {
     setSearchQuery("");
     setSelectedTagIds([]);
     setTagMode("any");
-    setEventRange([0, 20]);
-    setTicketRange([0, 20]);
-    setDebouncedEventRange([0, 20]);
-    setDebouncedTicketRange([0, 20]);
-    setStartDate("");
-    setEndDate("");
+    setStartDate(null);
+    setEndDate(null);
     setSelectedCategoryId(null);
   };
 
@@ -258,12 +254,14 @@ export default function ContactsPage() {
                 label="Start Date"
                 value={startDate}
                 onChange={setStartDate}
+                clearable={true}
                 placeholder="Start Date..."
                 leftSection={<IconCalendar size={16} />}
               />
               <DateInput
                 label="End Date"
                 onChange={setEndDate}
+                clearable={true}
                 value={endDate}
                 placeholder="End Date..."
                 leftSection={<IconCalendar size={16} />}
