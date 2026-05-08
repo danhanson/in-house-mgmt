@@ -30,9 +30,11 @@ import { TicketBulkCreateModal } from "@/app/components/tickets/TicketBulkCreate
 import RangeSliderInput from "@/app/components/RangeSliderInput";
 import ContactTable, { type Contact, type Tag } from "@/app/components/ContactTable";
 import { type EventCategory } from "@/app/components/event-utils";
+import { useDebouncedValue } from "@mantine/hooks";
 import "./page.css";
 
 const MAX_TAG_COUNT = 99999;
+const CONTACT_FILTER_DEBOUNCE_MS = 300;
 
 export default function ContactsPage() {
   const router = useRouter();
@@ -96,6 +98,11 @@ export default function ContactsPage() {
     fetchGroupsAndTags();
   }, []);
 
+  const [debouncedSearchQuery] = useDebouncedValue(searchQuery, CONTACT_FILTER_DEBOUNCE_MS);
+  const [debouncedEventRange] = useDebouncedValue(eventRange, CONTACT_FILTER_DEBOUNCE_MS);
+  const [debouncedTicketRange] = useDebouncedValue(ticketRange, CONTACT_FILTER_DEBOUNCE_MS);
+  const [debouncedSelectedTagIds] = useDebouncedValue(selectedTagIds, CONTACT_FILTER_DEBOUNCE_MS);
+
   const fetchContacts = useCallback(
     async (url?: string) => {
       try {
@@ -105,7 +112,8 @@ export default function ContactsPage() {
 
         if (!fetchUrl) {
           const params = new URLSearchParams();
-          if (searchQuery) params.append("search", searchQuery);
+          if (debouncedSearchQuery !== "")
+            params.append("search", debouncedSearchQuery.trim());
           if (debouncedEventRange[0] > 0)
             params.append("min_events", debouncedEventRange[0].toString());
           if (debouncedEventRange[1] < 20)
@@ -114,11 +122,8 @@ export default function ContactsPage() {
             params.append("min_tickets", debouncedTicketRange[0].toString());
           if (debouncedTicketRange[1] < 20)
             params.append("max_tickets", debouncedTicketRange[1].toString());
-          if (startDate) params.append("start_date", startDate);
-          if (endDate) params.append("end_date", endDate);
-          if (selectedCategoryId) params.append("event_category_id", selectedCategoryId);
-          if (selectedTagIds.length > 0) {
-            params.append("tag_ids", selectedTagIds.join(","));
+          if (debouncedSelectedTagIds.length > 0) {
+            params.append("tag_ids", debouncedSelectedTagIds.join(","));
             params.append("tag_mode", tagMode);
           }
           fetchUrl = `/contacts/?${params}`;
@@ -145,9 +150,9 @@ export default function ContactsPage() {
       debouncedEventRange,
       debouncedTicketRange,
       endDate,
-      searchQuery,
+      debouncedSearchQuery,
       selectedCategoryId,
-      selectedTagIds,
+      debouncedSelectedTagIds,
       tagMode,
       startDate,
     ]
@@ -319,7 +324,6 @@ export default function ContactsPage() {
                 minRange={0}
                 value={eventRange}
                 onChange={setEventRange}
-                onDebouncedChange={setDebouncedEventRange}
                 labelFormatter={(v) => (v === 20 ? "20+" : v)}
               />
               <RangeSliderInput
@@ -329,7 +333,6 @@ export default function ContactsPage() {
                 minRange={0}
                 value={ticketRange}
                 onChange={setTicketRange}
-                onDebouncedChange={setDebouncedTicketRange}
                 labelFormatter={(v) => (v === 20 ? "20+" : v)}
               />
               <Button variant="outline" onClick={handleReset} ml="auto">
