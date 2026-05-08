@@ -34,3 +34,4 @@ Server/staticfiles
 Application/.nvmrc
 Server/.claude/
 tmp/
+meetings/

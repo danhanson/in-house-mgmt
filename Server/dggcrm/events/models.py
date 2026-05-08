@@ -65,6 +65,9 @@ class Event(models.Model):
         default=EventStatus.DRAFT, choices=EventStatus.choices, help_text="Current status of this event"
     )
 
+    anonymous_attendee_count = models.PositiveIntegerField(default=0)
+    anonymous_attendees_detail = models.JSONField(default=list)
+
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
