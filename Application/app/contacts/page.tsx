@@ -132,12 +132,12 @@ export default function ContactsPage() {
             params.append("tag_mode", tagMode);
           }
           if (params.size > 0) {
-          fetchUrl = `/contacts/?${params}`;
+            fetchUrl = `/contacts/?${params}`;
           } else {
             fetchUrl = '/contacts/';
           }
         }
-
+        
         const data = await apiClient.get<{
           results: Contact[];
           count: number;
@@ -307,6 +307,7 @@ export default function ContactsPage() {
                   }}
                 />
                 <MultiSelect
+                  aria-label="Tag Ids"
                   data={tags.map((t) => ({ value: String(t.id), label: t.name }))}
                   value={selectedTagIds}
                   onChange={setSelectedTagIds}
