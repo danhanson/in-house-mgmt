@@ -128,7 +128,11 @@ export default function ContactsPage() {
             params.append("tag_ids", debouncedSelectedTagIds.join(","));
             params.append("tag_mode", tagMode);
           }
+          if (params.size > 0) {
           fetchUrl = `/contacts/?${params}`;
+          } else {
+            fetchUrl = '/contacts/';
+          }
         }
 
         const data = await apiClient.get<{
@@ -136,7 +140,7 @@ export default function ContactsPage() {
           count: number;
           next: string | null;
           previous: string | null;
-        }>(fetchUrl || `/contacts/`);
+        }>(fetchUrl);
 
         setContacts(data.results);
         setTotalCount(data.count);
