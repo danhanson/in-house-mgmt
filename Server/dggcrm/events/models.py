@@ -85,9 +85,11 @@ class Event(models.Model):
 
     @property
     def location_display(self):
+        if self.location_name and self.location_address:
+            return f"{self.location_name} ({self.location_address})"
         if self.location_name:
             return f"{self.location_name}"
-        elif self.location_address:
+        if self.location_address:
             return f"{self.location_address}"
         return "None"
 
