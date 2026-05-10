@@ -63,12 +63,44 @@ class EventSerializer(serializers.ModelSerializer):
                 "starts_at",
                 "ends_at",
                 "event_status",
+                "anonymous_attendee_count",
+                "anonymous_attendees_detail",
                 "category",
             }
         )
 
+    def validate_anonymous_attendees_detail(self, value):
+        allowed_keys = {"name", "contact_info", "notes"}
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Must be a list.")
+        for entry in value:
+            if not isinstance(entry, dict):
+                raise serializers.ValidationError("Each entry must be an object.")
+            if not set(entry.keys()).issubset(allowed_keys):
+                raise serializers.ValidationError(f"Allowed keys are: {sorted(allowed_keys)}.")
+            for v in entry.values():
+                if not isinstance(v, str):
+                    raise serializers.ValidationError("All values must be strings.")
+        return value
+
     def validate(self, attrs):
         event_status = attrs.get("event_status")
+        count = attrs.get(
+            "anonymous_attendee_count",
+            self.instance.anonymous_attendee_count if self.instance else 0,
+        )
+        detail = attrs.get(
+            "anonymous_attendees_detail",
+            self.instance.anonymous_attendees_detail if self.instance else [],
+        )
+        if len(detail) > count:
+            raise serializers.ValidationError(
+                {
+                    "anonymous_attendees_detail": (
+                        f"Cannot have more detail entries ({len(detail)}) than the anonymous participant count ({count})."
+                    )
+                }
+            )
 
         if event_status in FINAL_EVENT_STATUSES:
             invalid_participations = EventParticipation.objects.filter(

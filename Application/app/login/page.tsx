@@ -35,6 +35,12 @@ function LoginContent() {
             {socialError === "no_email" && (
               <>Social login did not provide an email. Please try another method.</>
             )}
+            {socialError === "mfa_required" && (
+              <>
+                Two-factor authentication is required for organizer accounts. Enable 2FA on your
+                Discord account and try again.
+              </>
+            )}
           </Alert>
         )}
 

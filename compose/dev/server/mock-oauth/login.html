@@ -59,6 +59,13 @@
                     </select>
                 </div>
 
+                <div class="form-group form-check">
+                    <input type="checkbox" class="form-check-input" id="mfaEnabled" checked>
+                    <label class="form-check-label" for="mfaEnabled">
+                        Discord 2FA enabled (mfa_enabled)
+                    </label>
+                </div>
+
                 <!-- Claims sent to mock-oauth2-server -->
                 <input type="hidden" name="claims" id="claimsInput">
                 <input type="hidden" name="redirect_uri" value="http://localhost:3030/accounts/mock-google/login/callback/">
@@ -77,22 +84,20 @@
 <script>
     const userSelect = document.getElementById("userSelect");
     const claimsInput = document.getElementById("claimsInput");
+    const mfaCheckbox = document.getElementById("mfaEnabled");
 
-    userSelect.addEventListener("change", () => {
+    function updateClaims() {
         const selected = userSelect.options[userSelect.selectedIndex];
-        claimsInput.value = selected.dataset.claims || "";
-    });
+        const base = selected.dataset.claims ? JSON.parse(selected.dataset.claims) : {};
+        base.mfa_enabled = mfaCheckbox.checked;
+        claimsInput.value = JSON.stringify(base);
+    }
 
-    const select = document.getElementById('userSelect');
-    const hiddenClaims = document.getElementById('claimsInput');
-
-    select.addEventListener('change', function () {
-        const selected = select.options[select.selectedIndex];
-        hiddenClaims.value = selected.dataset.claims || '{}';
-    });
+    userSelect.addEventListener("change", updateClaims);
+    mfaCheckbox.addEventListener("change", updateClaims);
 
     // initialize first value
-    if(select.options.length > 1) select.dispatchEvent(new Event('change'));
+    if (userSelect.options.length > 1) updateClaims();
 </script>
 
 </body>
