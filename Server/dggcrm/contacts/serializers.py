@@ -20,6 +20,12 @@ class ContactSerializer(serializers.ModelSerializer):
         assigned_tags = TagAssignments.objects.filter(contact_id=obj).select_related("tag")
         return [{"id": at.tag.id, "name": at.tag.name, "color": at.tag.color} for at in assigned_tags]
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if data.get("discord_id") is None:
+            data["discord_id"] = ""
+        return data
+
 
 class TagSerializer(serializers.ModelSerializer):
     class Meta:

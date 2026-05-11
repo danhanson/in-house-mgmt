@@ -132,7 +132,8 @@ def populate_with_fake_data(conn, num_contacts=50, num_events=25, num_tickets=30
         full_name = user["username"].replace("_", " ").replace(".", "").title()
         c.execute(
             "INSERT INTO contacts (full_name, discord_id, email, phone, note, created_at, modified_at) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id",
+            "VALUES (%s, %s, %s, %s, %s, %s, %s) "
+            "ON CONFLICT (discord_id) DO UPDATE SET full_name = EXCLUDED.full_name RETURNING id",
             (
                 full_name,
                 user["discord_id"],
@@ -146,11 +147,20 @@ def populate_with_fake_data(conn, num_contacts=50, num_events=25, num_tickets=30
         discord_test_contact_ids.append(c.fetchone()[0])
     conn.commit()
 
+    used_discord_ids = {u["discord_id"] for u in DISCORD_TEST_USERS}
+
+    def gen_discord_id():
+        while True:
+            did = str(random.randint(100_000_000_000_000_000, 999_999_999_999_999_999))
+            if did not in used_discord_ids:
+                used_discord_ids.add(did)
+                return did
+
     # Contacts
     contact_ids = []
     for _ in range(num_contacts):
         full_name = fake.name()
-        discord_id = str(random.randint(100_000_000_000_000_000, 999_999_999_999_999_999))
+        discord_id = None if random.random() < 0.3 else gen_discord_id()
         email = fake.email()
         phone = fake.phone_number()
         note = fake.text(max_nb_chars=200)

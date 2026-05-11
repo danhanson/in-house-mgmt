@@ -51,7 +51,7 @@ def run_sync(client) -> dict:
         membership_tag_name = os.environ.get("DISCORD_MEMBERSHIP_TAG", "DGG Discord")
         membership_tag, _ = Tag.objects.get_or_create(name=membership_tag_name)
 
-        existing_contacts = {c.discord_id: c for c in Contact.objects.exclude(discord_id="")}
+        existing_contacts = {c.discord_id: c for c in Contact.objects.filter(discord_id__isnull=False)}
 
         created = 0
         updated = 0
@@ -317,7 +317,7 @@ class StagedEventsView(APIView):
             participants__event_tracker_crm_user=request.user,
             participants__imported_at__isnull=True,
         )
-        linked_discord_ids = Contact.objects.exclude(discord_id="").values("discord_id")
+        linked_discord_ids = Contact.objects.filter(discord_id__isnull=False).values("discord_id")
 
         staged_events = (
             StagedEvent.objects.filter(pending)
@@ -384,7 +384,7 @@ class StagedImportPreviewView(APIView):
         # "has CRM contact" and for "already on event" — by joining through Contact.
         discord_ids_with_contact = set(
             Contact.objects.filter(discord_id__in=discord_ids)
-            .exclude(discord_id="")
+            .filter(discord_id__isnull=False)
             .values_list("discord_id", flat=True)
         )
         # discord_id -> current status on the target event (for "already on event"
@@ -456,7 +456,7 @@ class StagedImportExecuteView(APIView):
             ).select_related("contact")
         }
         fallback_contact_by_discord_id: dict[str, Contact] = {}
-        for c in Contact.objects.filter(discord_id__in=discord_ids).exclude(discord_id="").order_by("id"):
+        for c in Contact.objects.filter(discord_id__in=discord_ids).filter(discord_id__isnull=False).order_by("id"):
             fallback_contact_by_discord_id.setdefault(c.discord_id, c)
 
         created_count = 0
