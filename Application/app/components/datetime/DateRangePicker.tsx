@@ -5,7 +5,12 @@ import { DateTimePicker as MantineDateTimePicker } from "@mantine/dates";
 import { Stack, Group, Text, Popover, Button, Box } from "@mantine/core";
 import { IconCalendar } from "@tabler/icons-react";
 import { useTimezone } from "@/app/components/provider/TimezoneContext";
-import { getTimezoneAbbr, formatUserProvidedDateTime } from "@/app/utils/datetime";
+import {
+  getTimezoneAbbr,
+  formatBackendProvidedDateTime,
+  parseToLocal,
+  localTimeToUTC,
+} from "@/app/utils/datetime";
 
 export interface DateRangeValue {
   start: string | null;
@@ -38,11 +43,7 @@ export function DateRangePicker({
   const { timezone } = useTimezone();
   const [opened, setOpened] = useState(false);
 
-  // Compute local Date values from UTC strings
-  // const localStart = useMemo(() => parseToLocal(value.start, timezone), [value.start, timezone]);
-  // const localEnd = useMemo(() => parseToLocal(value.end, timezone), [value.end, timezone]);
-
-  // Local draft state for when popover is open
+  // UTC draft state for when popover is open
   const [draftStart, setDraftStart] = useState<string | null>(value.start);
   const [draftEnd, setDraftEnd] = useState<string | null>(value.end);
 
@@ -70,11 +71,17 @@ export function DateRangePicker({
     setOpened(false);
   };
 
+  const handleStartChange = (date: string | null) => {
+    const utcValue = date ? localTimeToUTC(date, timezone) : null;
+    setDraftStart(utcValue);
+    setDraftEnd((currentEnd) => currentEnd ?? utcValue);
+  };
+
   // Format display text
   const getDisplayText = () => {
     if (!value.start && !value.end) return placeholder;
-    const startText = formatUserProvidedDateTime(value.start);
-    const endText = formatUserProvidedDateTime(value.end);
+    const startText = formatBackendProvidedDateTime(value.start, timezone);
+    const endText = formatBackendProvidedDateTime(value.end, timezone);
     return `${startText} - ${endText}`;
   };
 
@@ -112,10 +119,10 @@ export function DateRangePicker({
           <Stack gap="md">
             <MantineDateTimePicker
               label={`Start (${tzAbbr})`}
-              value={draftStart}
+              value={parseToLocal(draftStart, timezone)}
               valueFormat="MM/DD/YY hh:mm A"
               defaultTimeValue={!draftStart ? "12:00" : undefined}
-              onChange={setDraftStart}
+              onChange={handleStartChange}
               clearable
               popoverProps={{ withinPortal: false }}
               timePickerProps={{
@@ -124,11 +131,11 @@ export function DateRangePicker({
             />
             <MantineDateTimePicker
               label={`End (${tzAbbr})`}
-              value={draftEnd}
+              value={parseToLocal(draftEnd, timezone)}
               valueFormat="MM/DD/YY hh:mm A"
               defaultTimeValue={!draftEnd ? "12:00" : undefined}
-              onChange={setDraftEnd}
-              minDate={draftStart || undefined}
+              onChange={(date) => setDraftEnd(date ? localTimeToUTC(date, timezone) : null)}
+              minDate={parseToLocal(draftStart, timezone) || undefined}
               clearable
               popoverProps={{ withinPortal: false }}
               timePickerProps={{

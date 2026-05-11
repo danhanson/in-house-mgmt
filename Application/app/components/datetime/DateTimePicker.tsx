@@ -2,7 +2,7 @@
 
 import { DateTimePicker as MantineDateTimePicker } from "@mantine/dates";
 import { useTimezone } from "@/app/components/provider/TimezoneContext";
-import { toUTC, parseToLocal, getTimezoneAbbr } from "@/app/utils/datetime";
+import { localTimeToUTC, parseToLocal, getTimezoneAbbr } from "@/app/utils/datetime";
 import { ComponentProps } from "react";
 
 type MantineDateTimePickerProps = ComponentProps<typeof MantineDateTimePicker>;
@@ -31,13 +31,13 @@ export function DateTimePicker({
   // Parse UTC string to local Date for the picker
   const localValue = parseToLocal(value, timezone);
 
-  // Convert local Date back to UTC string for the callback
+  // Convert picker-local input back to UTC string for the callback
   const handleChange = (date: string | null) => {
     if (!date) {
       onChange(null);
       return;
     }
-    onChange(toUTC(new Date(date), timezone));
+    onChange(localTimeToUTC(date, timezone));
   };
 
   // Append timezone abbreviation to label if desired
