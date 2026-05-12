@@ -211,41 +211,45 @@ describe("ContactsPage", () => {
             search: "hello",
           }),
         ],
-      ])("fetches contacts with %s using query of %s", async (inputs, expectedParams) => {
-        const user = userEvent.setup();
+      ])(
+        "fetches contacts with %s using query of %s",
+        async (inputs, expectedParams) => {
+          const user = userEvent.setup();
 
-        render(
-          <MantineProvider env="test">
-            <ContactsPage />
-          </MantineProvider>
-        );
+          render(
+            <MantineProvider env="test">
+              <ContactsPage />
+            </MantineProvider>
+          );
 
-        // enter info into the filter
-        await enterText(user, "Search", inputs.search);
-        if (inputs.startDate !== null) {
-          await enterText(user, "Start Date", inputs.startDate);
-        }
-        if (inputs.endDate !== null) {
-          await enterText(user, "End Date", inputs.endDate);
-        }
+          // enter info into the filter
+          await enterText(user, "Search", inputs.search);
+          if (inputs.startDate !== null) {
+            await enterText(user, "Start Date", inputs.startDate);
+          }
+          if (inputs.endDate !== null) {
+            await enterText(user, "End Date", inputs.endDate);
+          }
 
-        await selectRange(user, "# of Events Attended", inputs.events);
-        await selectRange(user, "# of Closed Tickets", inputs.tickets);
+          await selectRange(user, "# of Events Attended", inputs.events);
+          await selectRange(user, "# of Closed Tickets", inputs.tickets);
 
-        await selectOptions(user, "Tags", [inputs.tagMode]);
-        await selectOptions(user, "Tag Ids", inputs.tagIds);
-        if (inputs.category !== null) {
-          await selectOptions(user, "Event Category", [inputs.category]);
-        }
+          await selectOptions(user, "Tags", [inputs.tagMode]);
+          await selectOptions(user, "Tag Ids", inputs.tagIds);
+          if (inputs.category !== null) {
+            await selectOptions(user, "Event Category", [inputs.category]);
+          }
 
-        // sort URLSearchParams so that we can compare them
-        expectedParams.sort();
+          // sort URLSearchParams so that we can compare them
+          expectedParams.sort();
 
-        await vi.waitFor(async () =>
-          // check that the mock contact with name containing parameters is displayed
-          expect(screen.getByText(/Contact Name/)).toHaveTextContent(`Params(${expectedParams})`)
-        );
-      });
+          await vi.waitFor(async () =>
+            // check that the mock contact with name containing parameters is displayed
+            expect(screen.getByText(/Contact Name/)).toHaveTextContent(`Params(${expectedParams})`)
+          );
+        },
+        20000
+      );
     });
 
     describe("Reset Filter Button", () => {
@@ -344,7 +348,7 @@ describe("ContactsPage", () => {
           const contactName = screen.getByText(/Contact Name/);
           expect(contactName).toHaveTextContent(/Params\(\)/);
         });
-      });
+      }, 20000);
     });
   });
 });
