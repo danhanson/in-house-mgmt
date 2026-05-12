@@ -111,8 +111,7 @@ export default function ContactsPage() {
 
         if (!fetchUrl) {
           const params = new URLSearchParams();
-          if (debouncedSearchQuery !== "")
-            params.append("search", debouncedSearchQuery.trim());
+          if (debouncedSearchQuery !== "") params.append("search", debouncedSearchQuery.trim());
           if (debouncedEventRange[0] > 0)
             params.append("min_events", debouncedEventRange[0].toString());
           if (debouncedEventRange[1] < 20)
@@ -121,12 +120,9 @@ export default function ContactsPage() {
             params.append("min_tickets", debouncedTicketRange[0].toString());
           if (debouncedTicketRange[1] < 20)
             params.append("max_tickets", debouncedTicketRange[1].toString());
-          if (startDate !== null)
-            params.append("start_date", startDate);
-          if (endDate !== null)
-            params.append("end_date", endDate);
-          if (selectedCategoryId !== null)
-            params.append("event_category_id", selectedCategoryId);
+          if (startDate !== null) params.append("start_date", startDate);
+          if (endDate !== null) params.append("end_date", endDate);
+          if (selectedCategoryId !== null) params.append("event_category_id", selectedCategoryId);
           if (debouncedSelectedTagIds.length > 0) {
             params.append("tag_ids", debouncedSelectedTagIds.join(","));
             params.append("tag_mode", tagMode);
@@ -134,7 +130,7 @@ export default function ContactsPage() {
           if (params.size > 0) {
             fetchUrl = `/contacts/?${params}`;
           } else {
-            fetchUrl = '/contacts/';
+            fetchUrl = "/contacts/";
           }
         }
 

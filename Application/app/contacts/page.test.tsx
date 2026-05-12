@@ -1,17 +1,16 @@
-import { render, screen } from '@testing-library/react';
-import userEvent, { UserEvent } from '@testing-library/user-event';
-import { vi, expect, describe, it, beforeAll, afterEach, afterAll } from 'vitest';
-import { MantineProvider } from '@mantine/core';
-import ContactsPage from './page';
+import { render, screen } from "@testing-library/react";
+import userEvent, { UserEvent } from "@testing-library/user-event";
+import { vi, expect, describe, it, beforeAll, afterEach, afterAll } from "vitest";
+import { MantineProvider } from "@mantine/core";
+import ContactsPage from "./page";
 import { setupServer } from "msw/node";
-import { HttpResponse, http } from 'msw';
-
+import { HttpResponse, http } from "msw";
 
 // mock tags used to test tag filtering
 const mockTags = [
-  { id: 0, name: "TAG_0", color: 'red' },
-  { id: 1, name: "TAG_1", color: 'blue' },
-  { id: 2, name: "TAG_2", color: 'orange' },
+  { id: 0, name: "TAG_0", color: "red" },
+  { id: 1, name: "TAG_1", color: "blue" },
+  { id: 2, name: "TAG_2", color: "orange" },
 ];
 
 // mock contact used to verify that fetched contacts are listed
@@ -41,17 +40,19 @@ const server = setupServer(
     const params = new URLSearchParams(match?.at(1) ?? "");
     params.sort();
     const full_name = `Contact Name with Params(${params})`;
- 
+
     return HttpResponse.json({
-      results: [{
-        ...mockContact,
-        full_name,
-      }],
+      results: [
+        {
+          ...mockContact,
+          full_name,
+        },
+      ],
       count: 1,
       next: null,
       previous: null,
-    })
-  }),
+    });
+  })
 );
 
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
@@ -60,7 +61,7 @@ afterAll(() => server.close());
 
 /**
  * Enter text into a textbox. Does not clear previous text.
- * 
+ *
  * @param user - UserEvent entering the text
  * @param name - name of the textbox being entered
  * @param text - text that the user is entering
@@ -75,7 +76,7 @@ async function enterText(user: UserEvent, name: string, text: string): Promise<v
 
 /**
  * Select options for a select. Does not unselect already selected options.
- * 
+ *
  * @param user UserEvent selecting the options
  * @param name name of the select being entered
  * @param values values
@@ -93,7 +94,7 @@ async function selectOptions(user: UserEvent, name: string, options: string[]) {
 /**
  * Select range for a range selector. Since it works by counting arrow keys presses
  * without checking initial values, it only works for selectors at full range.
- * 
+ *
  * @param user UserEvent selecting the range
  * @param name Name of the range slider
  * @param range Range to input
@@ -119,7 +120,8 @@ describe("ContactsPage", () => {
   describe("Search Contacts", () => {
     describe("Contacts Filter", () => {
       it.each([
-        [ // empty
+        [
+          // empty
           {
             search: "",
             startDate: null,
@@ -132,7 +134,8 @@ describe("ContactsPage", () => {
           },
           new URLSearchParams(),
         ],
-        [ // use all fields
+        [
+          // use all fields
           {
             search: "hello",
             startDate: "2026-10-30",
@@ -156,7 +159,8 @@ describe("ContactsPage", () => {
             max_tickets: "5",
           }),
         ],
-        [ // max fields with value 0
+        [
+          // max fields with value 0
           {
             search: "hello",
             startDate: null,
@@ -173,7 +177,8 @@ describe("ContactsPage", () => {
             max_tickets: "0",
           }),
         ],
-        [ // min fields with value 20
+        [
+          // min fields with value 20
           {
             search: "hello",
             startDate: null,
@@ -190,7 +195,8 @@ describe("ContactsPage", () => {
             min_tickets: "20",
           }),
         ],
-        [ // extra white space
+        [
+          // extra white space
           {
             search: "  hello  ",
             startDate: null,
@@ -267,31 +273,43 @@ describe("ContactsPage", () => {
         await vi.waitFor(async () => {
           // check that the filter is populated
           expect(screen.getByRole("textbox", { name: "Search" })).toHaveValue("Timmy");
-          expect(screen.getByRole("textbox", { name: "Start Date" })).toHaveValue("November 11, 2026");
-          expect(screen.getByRole("textbox", { name: "End Date" })).toHaveValue("December 12, 2026");
+          expect(screen.getByRole("textbox", { name: "Start Date" })).toHaveValue(
+            "November 11, 2026"
+          );
+          expect(screen.getByRole("textbox", { name: "End Date" })).toHaveValue(
+            "December 12, 2026"
+          );
 
           expect(screen.getByRole("textbox", { name: "Tags" })).toHaveValue("All of");
 
           await user.click(screen.getByRole("textbox", { name: "Tag Ids" }));
-          expect(screen.getByRole("option", { name: "TAG_0"}).ariaSelected).toBe("true");
-          expect(screen.getByRole("option", { name: "TAG_1"}).ariaSelected).toBe("false");
-          expect(screen.getByRole("option", { name: "TAG_2"}).ariaSelected).toBe("true");
+          expect(screen.getByRole("option", { name: "TAG_0" }).ariaSelected).toBe("true");
+          expect(screen.getByRole("option", { name: "TAG_1" }).ariaSelected).toBe("false");
+          expect(screen.getByRole("option", { name: "TAG_2" }).ariaSelected).toBe("true");
 
           expect(screen.getByRole("textbox", { name: "Event Category" })).toHaveValue("Canvassing");
 
-          const [minEvent, maxEvent] = screen.getByText("# of Events Attended").parentElement!.querySelectorAll('input[type="hidden"]') as NodeListOf<HTMLInputElement>;
+          const [minEvent, maxEvent] = screen
+            .getByText("# of Events Attended")
+            .parentElement!.querySelectorAll(
+              'input[type="hidden"]'
+            ) as NodeListOf<HTMLInputElement>;
           expect(minEvent.value).toBe("2");
           expect(maxEvent.value).toBe("12");
 
-          const [minTickets, maxTickets] = screen.getByText("# of Closed Tickets").parentElement!.querySelectorAll('input[type="hidden"]') as NodeListOf<HTMLInputElement>;
+          const [minTickets, maxTickets] = screen
+            .getByText("# of Closed Tickets")
+            .parentElement!.querySelectorAll(
+              'input[type="hidden"]'
+            ) as NodeListOf<HTMLInputElement>;
           expect(minTickets.value).toBe("1");
           expect(maxTickets.value).toBe("3");
 
           // check that the mock contact with non-empty parameters is displayed
-          expect(screen.getByText(/Contact Name/)).toHaveTextContent(/Params\(.+\)/)
+          expect(screen.getByText(/Contact Name/)).toHaveTextContent(/Params\(.+\)/);
         });
 
-        await user.click(await screen.findByRole("button", { name: "Reset" }))
+        await user.click(await screen.findByRole("button", { name: "Reset" }));
 
         await vi.waitFor(async () => {
           expect(screen.getByRole("textbox", { name: "Search" })).toHaveValue("");
@@ -300,17 +318,25 @@ describe("ContactsPage", () => {
           expect(screen.getByRole("textbox", { name: "Tags" })).toHaveValue("Any of");
 
           await user.click(screen.getByRole("textbox", { name: "Tag Ids" }));
-          expect(screen.getByRole("option", { name: "TAG_0"}).ariaSelected).toBe("false");
-          expect(screen.getByRole("option", { name: "TAG_1"}).ariaSelected).toBe("false");
-          expect(screen.getByRole("option", { name: "TAG_2"}).ariaSelected).toBe("false");
+          expect(screen.getByRole("option", { name: "TAG_0" }).ariaSelected).toBe("false");
+          expect(screen.getByRole("option", { name: "TAG_1" }).ariaSelected).toBe("false");
+          expect(screen.getByRole("option", { name: "TAG_2" }).ariaSelected).toBe("false");
 
           expect(screen.getByRole("textbox", { name: "Event Category" })).toHaveValue("");
 
-          const [minEvent, maxEvent] = screen.getByText("# of Events Attended").parentElement!.querySelectorAll('input[type="hidden"]') as NodeListOf<HTMLInputElement>;
+          const [minEvent, maxEvent] = screen
+            .getByText("# of Events Attended")
+            .parentElement!.querySelectorAll(
+              'input[type="hidden"]'
+            ) as NodeListOf<HTMLInputElement>;
           expect(minEvent.value).toBe("0");
           expect(maxEvent.value).toBe("20");
 
-          const [minTickets, maxTickets] = screen.getByText("# of Closed Tickets").parentElement!.querySelectorAll('input[type="hidden"]') as NodeListOf<HTMLInputElement>;
+          const [minTickets, maxTickets] = screen
+            .getByText("# of Closed Tickets")
+            .parentElement!.querySelectorAll(
+              'input[type="hidden"]'
+            ) as NodeListOf<HTMLInputElement>;
           expect(minTickets.value).toBe("0");
           expect(maxTickets.value).toBe("20");
 
