@@ -71,11 +71,11 @@ export function formatBackendProvidedDateTime(
 }
 
 /**
- * Convert a local Date object to a UTC ISO string for API submission
+ * Convert picker-local datetime input to a UTC ISO string.
  */
-export function toUTC(date: Date | null, tz: string = getBrowserTimezone()): string | null {
-  if (!date) return null;
-  return dayjs.tz(date, tz).utc().toISOString();
+export function localTimeToUTC(localTimeString: string, tz: string = getBrowserTimezone()): string {
+  const userTime = dayjs.utc(localTimeString).tz(tz, true);
+  return userTime.utc().format();
 }
 
 /**

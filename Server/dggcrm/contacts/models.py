@@ -12,7 +12,7 @@ class Contact(models.Model):
 
     full_name = models.CharField(max_length=200, blank=True)
 
-    discord_id = models.CharField(max_length=100, blank=True)
+    discord_id = models.CharField(max_length=100, blank=True, null=True, unique=True)
     email = models.EmailField(blank=True)
     phone = models.CharField(max_length=50, blank=True)
 
@@ -38,6 +38,11 @@ class Contact(models.Model):
             return self.discord_id
 
         return self.id
+
+    def save(self, *args, **kwargs):
+        if self.discord_id == "":
+            self.discord_id = None
+        super().save(*args, **kwargs)
 
 
 class Tag(models.Model):
