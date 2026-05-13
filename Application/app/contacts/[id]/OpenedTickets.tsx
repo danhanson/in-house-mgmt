@@ -102,17 +102,17 @@ export default function OpenedTickets({ contactId }: { contactId: string }) {
   const [ticketStatuses, setTicketStatuses] = useState<StatusOption[]>([]);
 
   useEffect(() => {
+    const fetchTicketStatuses = async () => {
+      try {
+        const data = await apiClient.get<StatusOption[]>("/ticket-statuses/");
+        setTicketStatuses(data.filter((s) => s.value !== "CANCELED"));
+      } catch (error) {
+        console.error("Error fetching ticket statuses:", error);
+      }
+    };
+
     fetchTicketStatuses();
   }, [contactId]);
-
-  const fetchTicketStatuses = async () => {
-    try {
-      const data = await apiClient.get<StatusOption[]>("/ticket-statuses/");
-      setTicketStatuses(data.filter((s) => s.value !== "CANCELED"));
-    } catch (error) {
-      console.error("Error fetching ticket statuses:", error);
-    }
-  };
 
   const buildTicketsUrl = useCallback(
     (page?: number) => {
@@ -158,7 +158,7 @@ export default function OpenedTickets({ contactId }: { contactId: string }) {
   useEffect(() => {
     setTicketsPage(1);
     fetchTickets(buildTicketsUrl(1));
-  }, [ticketSearch, ticketStatusFilter]);
+  }, [buildTicketsUrl, fetchTickets]);
 
   const toggleFilter = (
     current: FilterState | null,
@@ -175,7 +175,6 @@ export default function OpenedTickets({ contactId }: { contactId: string }) {
   };
 
   const totalTicketPages = Math.ceil(ticketsCount / 6) !== 0 ? Math.ceil(ticketsCount / 6) : 1;
-  console.log(ticketsCount);
 
   return (
     <Grid.Col span={{ base: 12, md: 6 }}>

@@ -19,8 +19,6 @@ import {
   Loader,
   Center,
   Textarea,
-  ScrollArea,
-  Avatar,
   ActionIcon,
   Tooltip,
 } from "@mantine/core";
@@ -28,7 +26,7 @@ import { IconPencil, IconSend, IconX } from "@tabler/icons-react";
 import { getStatusColor, getPriorityColor } from "./TicketTable";
 import TicketDescription from "./TicketDescription";
 import { Ticket, TicketType } from "./ticket-utils";
-import ContactSearch, { Contact } from "@/app/components/ContactSearch";
+import { Contact } from "@/app/components/ContactSearch";
 import { SearchSelect, SearchSelectOption } from "@/app/components/SearchSelect";
 import { EnumSelect, EnumSelectOption } from "@/app/components/EnumSelect";
 import { useUser } from "@/app/components/provider/UserContext";
@@ -133,35 +131,6 @@ export default function TicketView({
 
 function TitleCard({ ticket }: { ticket: Ticket }) {
   return <Title order={2}>{ticket.title}</Title>;
-}
-
-function CallInstructionsCard({ ticket }: { ticket: Ticket }) {
-  return (
-    <Paper p="md" withBorder style={{ position: "relative", minHeight: "400px" }}>
-      <Stack gap="md">
-        <Title order={4}>Call Instructions</Title>
-
-        <Box>
-          <Text size="sm" c="dimmed" mb="xs">
-            Description
-          </Text>
-          <Paper p="md" bg="gray.0" style={{ borderRadius: "4px" }}>
-            <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
-              {ticket.description}
-            </Text>
-          </Paper>
-        </Box>
-
-        <ol style={{ paddingLeft: "1.5rem" }}>
-          <li>Review the reach details and requirements</li>
-          <li>Contact the assigned person or team</li>
-          <li>Discuss the reach objectives and timeline</li>
-          <li>Update the reach status based on the outcome</li>
-          <li>Mark follow-up actions if needed</li>
-        </ol>
-      </Stack>
-    </Paper>
-  );
 }
 
 function TicketMetadataCard({ ticket }: { ticket: Ticket }) {
@@ -734,118 +703,6 @@ function TicketTimeline({
           </Button>
         </Group>
       )}
-    </Paper>
-  );
-}
-
-interface CommentEntry {
-  created_at: string;
-  actor_display: string | null;
-  message: string;
-}
-
-function TicketComments({ ticketId }: { ticketId: number }) {
-  const [comments, setComments] = useState<CommentEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [commentText, setCommentText] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-
-  const fetchComments = async () => {
-    try {
-      setLoading(true);
-      const data = await apiClient.get<CommentEntry[] | { results: CommentEntry[] }>(
-        `/tickets/${ticketId}/timeline/?show=comment`
-      );
-      setComments(Array.isArray(data) ? data : (data.results ?? []));
-    } catch (err) {
-      console.error("Failed to fetch comments", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchComments();
-  }, [ticketId]);
-
-  const handleSubmit = async () => {
-    if (!commentText.trim()) return;
-    setSubmitting(true);
-    try {
-      await apiClient.post(`/tickets/${ticketId}/comment/`, {
-        message: commentText.trim(),
-        ticket: ticketId,
-      });
-      setCommentText("");
-      await fetchComments();
-    } catch (err) {
-      console.error("Failed to post comment", err);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <Paper p="md" withBorder>
-      <Title order={4} mb="md">
-        Comments
-      </Title>
-
-      <ScrollArea h={300} mb="md">
-        {loading ? (
-          <Center h={100}>
-            <Loader size="sm" />
-          </Center>
-        ) : comments.length === 0 ? (
-          <Text c="dimmed" size="sm" ta="center" py="xl">
-            No comments yet.
-          </Text>
-        ) : (
-          <Stack gap="sm">
-            {comments.map((c, i) => (
-              <Box key={i}>
-                <Group gap="sm" align="flex-start">
-                  <Avatar size="sm" radius="xl" color="blue">
-                    {(c.actor_display || "?")[0].toUpperCase()}
-                  </Avatar>
-                  <Box style={{ flex: 1 }}>
-                    <Group gap="xs" mb={2}>
-                      <Text size="sm" fw={600}>
-                        {c.actor_display ?? "Unknown"}
-                      </Text>
-                      <Text size="xs" c="dimmed">
-                        {formatBackendProvidedDateTime(c.created_at)}
-                      </Text>
-                    </Group>
-                    <Text size="sm">{c.message}</Text>
-                  </Box>
-                </Group>
-                {i < comments.length - 1 && <Divider mt="sm" />}
-              </Box>
-            ))}
-          </Stack>
-        )}
-      </ScrollArea>
-
-      <Group align="flex-end" gap="sm">
-        <Textarea
-          placeholder="Add a comment"
-          style={{ flex: 1 }}
-          autosize
-          minRows={2}
-          maxRows={5}
-          value={commentText}
-          onChange={(e) => setCommentText(e.currentTarget.value)}
-        />
-        <Button
-          leftSection={<IconSend size={16} />}
-          loading={submitting}
-          disabled={!commentText.trim()}
-          onClick={handleSubmit}
-        >
-          Send
-        </Button>
-      </Group>
     </Paper>
   );
 }
