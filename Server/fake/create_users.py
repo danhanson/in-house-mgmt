@@ -17,6 +17,7 @@ django.setup()
 from allauth.account.models import EmailAddress
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
+from rest_framework.authtoken.models import Token
 
 from dggcrm.accounts.models import DiscordID
 
@@ -32,6 +33,7 @@ GROUP_PERMISSIONS = {
         "view_event",
         "view_all_events",
         "change_assigned_event",
+        "record_attendance",
         "view_eventparticipation",
         "view_all_participations",
         "add_eventparticipation",
@@ -105,6 +107,8 @@ for group_name, perms in GROUP_PERMISSIONS.items():
     group.save()
     groups[group_name] = group
     print(f"Configured group: {group_name}")
+
+bot_group, _ = Group.objects.get_or_create(name="DISCORD_BOT")
 
 User = get_user_model()
 
@@ -204,6 +208,25 @@ for user_data in users_data:
     if group_name:
         user.groups.clear()
         user.groups.add(groups[group_name])
+
+bot_user, created = User.objects.get_or_create(username="discord-bot")
+if created:
+    bot_user.set_unusable_password()
+    bot_user.save()
+    print("Created discord-bot service user")
+
+bot_user.groups.add(bot_group)
+bot_token, created = Token.objects.get_or_create(user=bot_user)
+print(f"Configured bot group for {bot_user.username}")
+if created:
+    print(f"Created auth token for {bot_user.username}: {bot_token.key}")
+
+for bot_username in ["discord-bot-dev"]:
+    extra_bot_user = User.objects.filter(username=bot_username).first()
+    if extra_bot_user:
+        extra_bot_user.groups.add(bot_group)
+        Token.objects.get_or_create(user=extra_bot_user)
+        print(f"Configured bot group for {bot_username}")
 
 
 if created_users:
