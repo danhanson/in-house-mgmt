@@ -112,13 +112,13 @@ export default function ContactsPage() {
         if (!fetchUrl) {
           const params = new URLSearchParams();
           if (debouncedSearchQuery !== "") params.append("search", debouncedSearchQuery.trim());
-          if (debouncedEventRange[0] > 0)
+          if (debouncedEventRange[0] > RANGE_LIMITS[0])
             params.append("min_events", debouncedEventRange[0].toString());
-          if (debouncedEventRange[1] < 20)
+          if (debouncedEventRange[1] < RANGE_LIMITS[1])
             params.append("max_events", debouncedEventRange[1].toString());
-          if (debouncedTicketRange[0] > 0)
+          if (debouncedTicketRange[0] > RANGE_LIMITS[0])
             params.append("min_tickets", debouncedTicketRange[0].toString());
-          if (debouncedTicketRange[1] < 20)
+          if (debouncedTicketRange[1] < RANGE_LIMITS[1])
             params.append("max_tickets", debouncedTicketRange[1].toString());
           if (startDate !== null) params.append("start_date", startDate);
           if (endDate !== null) params.append("end_date", endDate);
@@ -269,14 +269,14 @@ export default function ContactsPage() {
                 label="Start Date"
                 value={startDate}
                 onChange={setStartDate}
-                clearable={true}
+                clearable
                 placeholder="Start Date..."
                 leftSection={<IconCalendar size={16} />}
               />
               <DateInput
                 label="End Date"
                 onChange={setEndDate}
-                clearable={true}
+                clearable
                 value={endDate}
                 placeholder="End Date..."
                 leftSection={<IconCalendar size={16} />}
