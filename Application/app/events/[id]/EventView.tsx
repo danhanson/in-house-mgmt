@@ -15,7 +15,6 @@ import {
   EventCategory,
   EventParticipation,
   getStatusColor,
-  getEventParticipationStatusColor,
   UsersInEvent,
 } from "@/app/components/event-utils";
 import { BackendPaginatedResults, useBackend, useBackendMutation } from "@/app/lib/api";

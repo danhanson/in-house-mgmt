@@ -14,7 +14,7 @@ import {
   ActionIcon,
 } from "@mantine/core";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { apiClient } from "@/app/lib/apiClient";
 import TicketTable, {
   type SortField,
@@ -75,89 +75,100 @@ export default function TicketTemplateView({
   const [totalCount, setTotalCount] = useState(0);
   const [sortField, setSortField] = useState<SortField>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
+  const didInitialFetch = useRef(false);
 
-  useEffect(() => {
-    fetchTickets();
-    fetchPriorities();
-  }, []);
-
-  const fetchPriorities = async () => {
+  const fetchPriorities = useCallback(async () => {
     try {
       const data = await apiClient.get<{ value: number; label: string }[]>("/ticket-priorities");
       setPriorities(data.map((p) => ({ value: String(p.value), label: p.label })));
     } catch (error) {
       console.error("Error fetching priorities:", error);
     }
-  };
+  }, []);
 
-  const fetchTickets = async (
-    url?: string,
-    overrides?: {
-      priority?: string | null;
-      ticketType?: string | null;
-      assignee?: SearchSelectOption<UserResult> | null;
-      event?: SearchSelectOption<EventResult> | null;
-      sortField?: SortField;
-      sortDirection?: SortDirection;
-      excludedStatuses?: string[];
-    }
-  ) => {
-    try {
-      setLoading(true);
-      let fetchPath = url || "/tickets";
-
-      if (!url) {
-        const params = new URLSearchParams();
-
-        const effectivePriority = overrides?.priority !== undefined ? overrides.priority : priority;
-        const effectiveType =
-          overrides?.ticketType !== undefined ? overrides.ticketType : ticketType;
-        const effectiveSortField =
-          overrides?.sortField !== undefined ? overrides.sortField : sortField;
-        const effectiveSortDirection =
-          overrides?.sortDirection !== undefined ? overrides.sortDirection : sortDirection;
-        const effectiveAssignee = overrides?.assignee !== undefined ? overrides.assignee : assignee;
-        const effectiveEvent = overrides?.event !== undefined ? overrides.event : event;
-        const effectiveExcluded =
-          overrides?.excludedStatuses !== undefined ? overrides.excludedStatuses : excludedStatuses;
-
-        // Fixed type takes priority; user-selected type only applies when there are multiple options
-        if (fixedType) {
-          params.append("type", fixedType);
-        } else if (effectiveType) {
-          params.append("type", effectiveType);
-        }
-        if (effectiveAssignee) params.append("assigned_to", String(effectiveAssignee.id));
-        if (effectiveEvent) params.append("event", String(effectiveEvent.id));
-        if (effectivePriority != null) params.append("priority", effectivePriority);
-        if (effectiveSortField && effectiveSortDirection) {
-          params.append(
-            "ordering",
-            effectiveSortDirection === "desc" ? `-${effectiveSortField}` : effectiveSortField
-          );
-        }
-        if (effectiveExcluded.length > 0)
-          params.append("exclude_status", effectiveExcluded.join(","));
-
-        if (params.toString()) fetchPath = `/tickets?${params.toString()}`;
+  const fetchTickets = useCallback(
+    async (
+      url?: string,
+      overrides?: {
+        priority?: string | null;
+        ticketType?: string | null;
+        assignee?: SearchSelectOption<UserResult> | null;
+        event?: SearchSelectOption<EventResult> | null;
+        sortField?: SortField;
+        sortDirection?: SortDirection;
+        excludedStatuses?: string[];
       }
+    ) => {
+      try {
+        setLoading(true);
+        let fetchPath = url || "/tickets";
 
-      const data = await apiClient.get<{
-        results: Ticket[];
-        count: number;
-        next: string | null;
-        previous: string | null;
-      }>(fetchPath);
-      setTickets(data.results || []);
-      setTotalCount(data.count);
-      setNextUrl(data.next);
-      setPreviousUrl(data.previous);
-    } catch (error) {
-      console.error("Error fetching tickets:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+        if (!url) {
+          const params = new URLSearchParams();
+
+          const effectivePriority =
+            overrides?.priority !== undefined ? overrides.priority : priority;
+          const effectiveType =
+            overrides?.ticketType !== undefined ? overrides.ticketType : ticketType;
+          const effectiveSortField =
+            overrides?.sortField !== undefined ? overrides.sortField : sortField;
+          const effectiveSortDirection =
+            overrides?.sortDirection !== undefined ? overrides.sortDirection : sortDirection;
+          const effectiveAssignee =
+            overrides?.assignee !== undefined ? overrides.assignee : assignee;
+          const effectiveEvent = overrides?.event !== undefined ? overrides.event : event;
+          const effectiveExcluded =
+            overrides?.excludedStatuses !== undefined
+              ? overrides.excludedStatuses
+              : excludedStatuses;
+
+          // Fixed type takes priority; user-selected type only applies when there are multiple options
+          if (fixedType) {
+            params.append("type", fixedType);
+          } else if (effectiveType) {
+            params.append("type", effectiveType);
+          }
+          if (effectiveAssignee) params.append("assigned_to", String(effectiveAssignee.id));
+          if (effectiveEvent) params.append("event", String(effectiveEvent.id));
+          if (effectivePriority != null) params.append("priority", effectivePriority);
+          if (effectiveSortField && effectiveSortDirection) {
+            params.append(
+              "ordering",
+              effectiveSortDirection === "desc" ? `-${effectiveSortField}` : effectiveSortField
+            );
+          }
+          if (effectiveExcluded.length > 0)
+            params.append("exclude_status", effectiveExcluded.join(","));
+
+          if (params.toString()) fetchPath = `/tickets?${params.toString()}`;
+        }
+
+        const data = await apiClient.get<{
+          results: Ticket[];
+          count: number;
+          next: string | null;
+          previous: string | null;
+        }>(fetchPath);
+        setTickets(data.results || []);
+        setTotalCount(data.count);
+        setNextUrl(data.next);
+        setPreviousUrl(data.previous);
+      } catch (error) {
+        console.error("Error fetching tickets:", error);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [assignee, event, excludedStatuses, fixedType, priority, sortDirection, sortField, ticketType]
+  );
+
+  useEffect(() => {
+    if (didInitialFetch.current) return;
+    didInitialFetch.current = true;
+
+    fetchTickets();
+    fetchPriorities();
+  }, [fetchTickets, fetchPriorities]);
 
   const setNewAssignee = (newAssignee: SearchSelectOption<UserResult> | null) => {
     setAssignedToMe(false);

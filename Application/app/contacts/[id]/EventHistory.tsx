@@ -114,21 +114,21 @@ export default function EventHistory({ contactId }: { contactId: string }) {
   const [commitmentStatuses, setCommitmentStatuses] = useState<StatusOption[]>([]);
 
   useEffect(() => {
+    const fetchStatusOptions = async () => {
+      try {
+        const [eventData, commitmentData] = await Promise.all([
+          apiClient.get<StatusOption[]>("/event-statuses/"),
+          apiClient.get<StatusOption[]>("/commitment-statuses/"),
+        ]);
+        setEventStatuses(eventData);
+        setCommitmentStatuses(commitmentData);
+      } catch (error) {
+        console.error("Error fetching status options:", error);
+      }
+    };
+
     fetchStatusOptions();
   }, [contactId]);
-
-  const fetchStatusOptions = async () => {
-    try {
-      const [eventData, commitmentData] = await Promise.all([
-        apiClient.get<StatusOption[]>("/event-statuses/"),
-        apiClient.get<StatusOption[]>("/commitment-statuses/"),
-      ]);
-      setEventStatuses(eventData);
-      setCommitmentStatuses(commitmentData);
-    } catch (error) {
-      console.error("Error fetching status options:", error);
-    }
-  };
 
   const buildEventsUrl = useCallback(
     (page?: number) => {
@@ -178,7 +178,7 @@ export default function EventHistory({ contactId }: { contactId: string }) {
   useEffect(() => {
     setEventsPage(1);
     fetchEvents(buildEventsUrl(1));
-  }, [eventSearch, statusFilter, typeFilter]);
+  }, [buildEventsUrl, fetchEvents]);
 
   const toggleFilter = (
     current: FilterState | null,

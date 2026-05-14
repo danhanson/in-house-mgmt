@@ -1,6 +1,6 @@
 "use client";
 
-import { Stack, TextInput, Paper, Text, Group, Button, Badge, Box, Divider } from "@mantine/core";
+import { Stack, TextInput, Paper, Text, Group, Button, Badge, Box } from "@mantine/core";
 import { useState, useEffect } from "react";
 import { IconSearch } from "@tabler/icons-react";
 import { apiClient } from "@/app/lib/apiClient";
@@ -29,29 +29,28 @@ export default function ContactSearch({ reachId }: ContactSearchProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Contact[]>([]);
   const [responses, setResponses] = useState<Map<string, VolunteerResponse>>(new Map());
-  const [loading, setLoading] = useState(false);
 
   // Fetch existing responses for this reach
   useEffect(() => {
+    const fetchResponses = async () => {
+      try {
+        // TODO: Replace with /api/tickets/<id>/audit?...
+        const data = await apiClient.get<VolunteerResponse[]>(
+          `/volunteer-responses/by-reach/${reachId}/`
+        );
+
+        const responsesMap = new Map<string, VolunteerResponse>();
+        data.forEach((resp: VolunteerResponse) => {
+          responsesMap.set(resp.did, resp);
+        });
+        setResponses(responsesMap);
+      } catch (error) {
+        console.error("Error fetching responses:", error);
+      }
+    };
+
     fetchResponses();
   }, [reachId]);
-
-  const fetchResponses = async () => {
-    try {
-      // TODO: Replace with /api/tickets/<id>/audit?...
-      const data = await apiClient.get<VolunteerResponse[]>(
-        `/volunteer-responses/by-reach/${reachId}/`
-      );
-
-      const responsesMap = new Map<string, VolunteerResponse>();
-      data.forEach((resp: VolunteerResponse) => {
-        responsesMap.set(resp.did, resp);
-      });
-      setResponses(responsesMap);
-    } catch (error) {
-      console.error("Error fetching responses:", error);
-    }
-  };
 
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
@@ -61,15 +60,12 @@ export default function ContactSearch({ reachId }: ContactSearchProps) {
     }
 
     try {
-      setLoading(true);
       const data = await apiClient.get<{ results?: Contact[] }>(
         `/contacts/?q=${encodeURIComponent(query)}`
       );
       setSearchResults(data.results || []);
     } catch (error) {
       console.error("Error searching contacts:", error);
-    } finally {
-      setLoading(false);
     }
   };
 

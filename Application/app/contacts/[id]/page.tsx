@@ -13,7 +13,7 @@ import {
   SimpleGrid,
   Skeleton,
 } from "@mantine/core";
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, useCallback, use } from "react";
 import {
   IconArrowLeft,
   IconMail,
@@ -74,11 +74,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
   const [contact, setContact] = useState<Contact | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchContactDetails();
-  }, [id]);
-
-  const fetchContactDetails = async () => {
+  const fetchContactDetails = useCallback(async () => {
     try {
       setLoading(true);
       const data = await apiClient.get<Contact>(`/contacts/${id}/`);
@@ -88,7 +84,11 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    fetchContactDetails();
+  }, [fetchContactDetails]);
 
   if (loading) {
     return (
